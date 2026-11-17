@@ -9,9 +9,11 @@ import {
   MessageCircle,
   Mic,
   MicOff,
+  MonitorSmartphone,
   PhoneCall,
   PhoneOff,
   Radio,
+  Smartphone,
   Sparkles,
   Square,
   Utensils,
@@ -91,13 +93,41 @@ const SUBVIEW_LABELS: Partial<Record<WorkspaceTab, string>> = {
   events: "Wydarzenia",
 };
 
-const MOBILE_BOTTOM_IDS: WorkspaceTab[] = ["overview", "chat", "food", "stays"];
+const MOBILE_BOTTOM_IDS: WorkspaceTab[] = [
+  "overview",
+  "chat",
+  "food",
+  "stays",
+  "media",
+];
+
+const VALID_TABS: WorkspaceTab[] = [
+  "overview",
+  "chat",
+  "food",
+  "stays",
+  "media",
+  "vision",
+  "routes",
+  "phone",
+  "events",
+];
+
+function getInitialTabFromUrl(): WorkspaceTab {
+  if (typeof window === "undefined") return "overview";
+  const tabParam = new URLSearchParams(window.location.search).get("tab");
+  if (tabParam && VALID_TABS.includes(tabParam as WorkspaceTab)) {
+    return tabParam as WorkspaceTab;
+  }
+  return "overview";
+}
 
 export default function App() {
   const isOnline = useOnlineStatus();
 
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(getInitialTabFromUrl);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [androidPhoneMode, setAndroidPhoneMode] = useState(false);
 
   const [voicePreset, setVoicePreset] = useState<VoicePreset>("woman_30_warm");
   const [mapsApiKey, setMapsApiKey] = useState<string>("");
@@ -327,15 +357,27 @@ export default function App() {
   );
 
   const pageBody = (
-    <div className="min-h-screen bg-[#050506] text-[#F4F6F4] flex flex-col pb-20 md:pb-8">
-      {/* Top Bar: Brand (left) + Live GPS Weather & PWA Install (right) */}
+    <div
+      className={`min-h-screen bg-[#050506] text-[#F4F6F4] flex flex-col ${
+        androidPhoneMode
+          ? "max-w-[430px] mx-auto border-x border-[#1E2420] pb-[84px] shadow-[0_0_50px_rgba(0,0,0,0.85)]"
+          : "pb-20 md:pb-8"
+      }`}
+    >
+      {/* Top Bar: Brand (left) + Android Phone Toggle, Live GPS Weather & PWA Install (right) */}
       <header className="sticky top-0 z-40 border-b border-[#1E2420] bg-[#050506]/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-4 py-2.5 sm:px-6">
+        <div
+          className={`mx-auto flex items-center justify-between gap-2 px-3.5 py-2.5 ${
+            androidPhoneMode ? "max-w-full" : "max-w-[1440px] sm:px-6 gap-4"
+          }`}
+        >
           <div className="flex items-center gap-2.5 shrink-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen((v) => !v)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E2420] bg-[#0D0F0E] text-neutral-200 hover:border-emerald-500/40 md:hidden cursor-pointer"
+              className={`flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E2420] bg-[#0D0F0E] text-neutral-200 hover:border-emerald-500/40 cursor-pointer touch-manipulation ${
+                androidPhoneMode ? "" : "md:hidden"
+              }`}
               aria-label="Otwórz menu zakładek"
             >
               {mobileMenuOpen ? (
@@ -348,16 +390,34 @@ export default function App() {
             <button
               type="button"
               onClick={() => handleSelectTab("overview")}
-              className="flex items-center gap-2.5 text-left cursor-pointer whitespace-nowrap shrink-0"
+              className="flex items-center gap-2 text-left cursor-pointer whitespace-nowrap shrink-0 touch-manipulation"
             >
-              <PickleLogo size={34} />
-              <span className="font-display text-lg font-bold tracking-tight text-white">
-                Miękiszon
-              </span>
+              <PickleLogo size={32} />
+              <div className="flex flex-col">
+                <span className="font-display text-base sm:text-lg font-bold leading-none tracking-tight text-white">
+                  Miękiszon
+                </span>
+                <span className="text-[10px] font-medium text-emerald-400/90 mt-0.5">
+                  Android · PL / DE
+                </span>
+              </div>
             </button>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setAndroidPhoneMode((v) => !v)}
+              className={`hidden md:inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                androidPhoneMode
+                  ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                  : "border-[#242B26] bg-[#0D0F0E] text-neutral-300 hover:border-emerald-500/40 hover:text-white"
+              }`}
+              title="Przełącz podgląd telefonu Android"
+            >
+              <Smartphone className="h-3.5 w-3.5 text-emerald-400" />
+              <span>{androidPhoneMode ? "Widok pełny" : "Telefon Android"}</span>
+            </button>
             <WeatherHeaderWidget
               weather={weather}
               loading={weatherLoading}
@@ -380,9 +440,13 @@ export default function App() {
         </div>
       )}
 
-      {/* Mobile Left Drawer Overlay */}
+      {/* Mobile / Android Drawer Overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
+        <div
+          className={`fixed inset-0 z-50 flex ${
+            androidPhoneMode ? "" : "md:hidden"
+          }`}
+        >
           <button
             type="button"
             aria-label="Zamknij menu"
@@ -412,9 +476,19 @@ export default function App() {
       )}
 
       {/* Main Left-Sidebar + Workspace Shell */}
-      <div className="mx-auto flex w-full max-w-[1440px] flex-1 gap-6 px-4 py-5 sm:px-6">
-        {/* Persistent Left Sidebar Tabs (Desktop / Tablet) */}
-        <aside className="hidden w-[244px] lg:w-[264px] shrink-0 md:block">
+      <div
+        className={`mx-auto flex w-full flex-1 gap-6 ${
+          androidPhoneMode
+            ? "max-w-full px-3.5 py-4"
+            : "max-w-[1440px] px-4 py-5 sm:px-6"
+        }`}
+      >
+        {/* Persistent Left Sidebar Tabs (Desktop / Tablet when not in Android Phone preview) */}
+        <aside
+          className={`hidden w-[244px] lg:w-[264px] shrink-0 ${
+            androidPhoneMode ? "" : "md:block"
+          }`}
+        >
           <div className="sticky top-[74px] rounded-2xl border border-[#1E2420] bg-[#0A0C0B] p-3 space-y-3">
             <div className="px-2 pt-1 pb-2 border-b border-[#1E2420]">
               <p className="text-xs font-medium text-neutral-400">
@@ -452,6 +526,20 @@ export default function App() {
                       :
                       {String(liveCallState.durationSec % 60).padStart(2, "0")}
                     </span>
+                    {liveCallState.cameraFacing === "screen" && (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-200">
+                        <MonitorSmartphone className="h-3 w-3" />
+                        Ekran telefonu udostępniony
+                      </span>
+                    )}
+                    {(liveCallState.cameraFacing === "user" ||
+                      liveCallState.cameraFacing === "environment") && (
+                      <span className="rounded-md border border-[#242B26] bg-[#050506] px-2 py-0.5 text-[11px] font-medium text-neutral-300">
+                        {liveCallState.cameraFacing === "user"
+                          ? "Kamera przód"
+                          : "Kamera tył"}
+                      </span>
+                    )}
                   </div>
                   {(liveCallState.subtitleBot || liveCallState.subtitleUser) && (
                     <p className="truncate text-xs text-neutral-200">
@@ -592,6 +680,10 @@ export default function App() {
               voicePreset={voicePreset}
               onVoicePresetChange={setVoicePreset}
               onOpenSubcategory={handleOpenSubcategory}
+              onStartLiveCall={() => {
+                handleSelectTab("chat");
+                dispatchLiveCommand("start");
+              }}
             />
           )}
 
@@ -671,10 +763,14 @@ export default function App() {
         </main>
       </div>
 
-      {/* Mobile Bottom Thumb-Zone Navigation (<= 15% viewport height) */}
+      {/* Android Bottom Thumb-Zone Navigation (5 primary tabs, safe-area inset) */}
       <nav
-        aria-label="Nawigacja mobilna"
-        className="fixed bottom-0 inset-x-0 z-40 grid grid-cols-4 border-t border-[#1E2420] bg-[#050506]/95 backdrop-blur-md md:hidden"
+        aria-label="Nawigacja mobilna Android"
+        className={`fixed bottom-0 z-40 grid grid-cols-5 border-t border-[#1E2420] bg-[#050506]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md ${
+          androidPhoneMode
+            ? "left-1/2 w-full max-w-[430px] -translate-x-1/2 border-x border-[#1E2420]"
+            : "inset-x-0 md:hidden"
+        }`}
       >
         {LEFT_NAV_TABS.filter((t) => MOBILE_BOTTOM_IDS.includes(t.id)).map(
           (item) => {
@@ -685,12 +781,12 @@ export default function App() {
                 key={item.id}
                 type="button"
                 onClick={() => handleSelectTab(item.id)}
-                className={`flex min-h-[54px] flex-col items-center justify-center gap-0.5 text-[11px] font-medium cursor-pointer ${
+                className={`flex min-h-[58px] flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium cursor-pointer touch-manipulation ${
                   active ? "text-emerald-400" : "text-neutral-400"
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                <span>{item.shortLabel}</span>
+                <span className="truncate max-w-full">{item.shortLabel}</span>
               </button>
             );
           }

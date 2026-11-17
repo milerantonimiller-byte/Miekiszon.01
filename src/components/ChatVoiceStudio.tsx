@@ -8,6 +8,7 @@ import {
   MapPin,
   Mic,
   MicOff,
+  MonitorSmartphone,
   Paperclip,
   PhoneCall,
   PhoneOff,
@@ -63,13 +64,9 @@ interface ChatVoiceStudioProps {
 }
 
 const LANGUAGES = [
-  { code: "pl", label: "Polski" },
-  { code: "auto", label: "Auto (Wielojęzyczny)" },
-  { code: "en", label: "English" },
-  { code: "de", label: "Deutsch" },
-  { code: "es", label: "Español" },
-  { code: "fr", label: "Français" },
-  { code: "uk", label: "Українська" },
+  { code: "pl", label: "Polski (PL)" },
+  { code: "de", label: "Deutsch / Niemiecki (DE)" },
+  { code: "pl_de", label: "Auto (tylko Polski / Deutsch)" },
 ];
 
 const MODELS: Array<{ id: GeminiChatModel; label: string; hint: string }> = [
@@ -204,14 +201,16 @@ export const ChatVoiceStudio: React.FC<ChatVoiceStudioProps> = ({
 
   const scrollEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const screenShotInputRef = useRef<HTMLInputElement | null>(null);
   const lastInitialNonceRef = useRef<number | null>(null);
   const lastExternalCmdNonceRef = useRef<number | null>(null);
 
-  // Camera sharing (front / rear) for real-time voice calls & command bar snapshots
-  const [cameraFacing, setCameraFacing] = useState<"user" | "environment" | null>(
-    null
-  );
+  // Camera & phone screen sharing (front / rear / screen) for real-time voice calls & command bar snapshots
+  const [cameraFacing, setCameraFacing] = useState<
+    "user" | "environment" | "screen" | null
+  >(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [screenFallbackReady, setScreenFallbackReady] = useState(false);
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -446,16 +445,18 @@ export const ChatVoiceStudio: React.FC<ChatVoiceStudioProps> = ({
       cameraVideoRef.current.srcObject = null;
     }
     setCameraFacing(null);
+    setScreenFallbackReady(false);
   };
 
   const toggleCameraSharing = async (facing: "user" | "environment") => {
     setCameraError(null);
+    setScreenFallbackReady(false);
     if (cameraFacing === facing) {
       stopCameraSharing();
       return;
     }
 
-    // Stop any previous camera stream before switching front <-> rear
+    // Stop any previous camera/screen stream before switching
     cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
     cameraStreamRef.current = null;
 
@@ -482,6 +483,47 @@ export const ChatVoiceStudio: React.FC<ChatVoiceStudioProps> = ({
         err instanceof Error
           ? `Brak dostępu do kamery (${facing === "user" ? "przód" : "tylna"}): ${err.message}`
           : "Nie udało się uruchomić kamery. Sprawdź uprawnienia w przeglądarce."
+      );
+    }
+  };
+
+  const toggleScreenSharing = async () => {
+    setCameraError(null);
+    setScreenFallbackReady(false);
+    if (cameraFacing === "screen") {
+      stopCameraSharing();
+      return;
+    }
+
+    cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+    cameraStreamRef.current = null;
+
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setCameraFacing(null);
+      setScreenFallbackReady(true);
+      setCameraError(
+        "Ta przeglądarka Android nie pozwala na strumieniowanie ekranu na żywo (getDisplayMedia). Możesz od razu przesłać zrzut ekranu z telefonu poniżej."
+      );
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 2, max: 5 } },
+        audio: false,
+      });
+      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        stopCameraSharing();
+      });
+      cameraStreamRef.current = stream;
+      setCameraFacing("screen");
+    } catch (err) {
+      setCameraFacing(null);
+      setScreenFallbackReady(true);
+      setCameraError(
+        err instanceof Error
+          ? `Nie uruchomiono podglądu ekranu na żywo (${err.message}). Możesz przesłać zrzut ekranu z telefonu poniżej.`
+          : "Anulowano udostępnianie ekranu telefonu."
       );
     }
   };
@@ -515,9 +557,11 @@ export const ChatVoiceStudio: React.FC<ChatVoiceStudioProps> = ({
     if (cameraFrame && cameraFacing) {
       currentAttachments.push({
         name:
-          cameraFacing === "user"
-            ? "kamera-przod.jpg"
-            : "kamera-tylna.jpg",
+          cameraFacing === "screen"
+            ? "ekran-telefonu.jpg"
+            : cameraFacing === "user"
+              ? "kamera-przod.jpg"
+              : "kamera-tylna.jpg",
         mimeType: "image/jpeg",
         data: cameraFrame,
       });
@@ -1551,10 +1595,27 @@ export const ChatVoiceStudio: React.FC<ChatVoiceStudioProps> = ({
           )}
 
           <canvas ref={cameraCanvasRef} className="hidden" />
+          <input
+            ref={screenShotInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileAttach}
+            className="hidden"
+          />
 
           {cameraError && (
-            <div className="mx-5 mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs text-amber-200">
-              {cameraError}
+            <div className="mx-5 mb-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs text-amber-200">
+              <span>{cameraError}</span>
+              {screenFallbackReady && (
+                <button
+                  type="button"
+                  onClick={() => screenShotInputRef.current?.click()}
+                  className="inline-flex min-h-[34px] items-center gap-1.5 rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-black hover:bg-emerald-400 cursor-pointer"
+                >
+                  <MonitorSmartphone className="h-3.5 w-3.5" />
+                  Wgraj zrzut ekranu z telefonu
+                </button>
+              )}
             </div>
           )}
 
@@ -1570,15 +1631,21 @@ export const ChatVoiceStudio: React.FC<ChatVoiceStudioProps> = ({
                 />
                 <div className="min-w-0">
                   <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-300">
-                    <Camera className="h-3.5 w-3.5 shrink-0" />
-                    {cameraFacing === "user"
-                      ? "Kamera przód udostępniona"
-                      : "Kamera tylna udostępniona"}
+                    {cameraFacing === "screen" ? (
+                      <MonitorSmartphone className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      <Camera className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    {cameraFacing === "screen"
+                      ? "Ekran telefonu udostępniony"
+                      : cameraFacing === "user"
+                        ? "Kamera przód udostępniona"
+                        : "Kamera tylna udostępniona"}
                   </p>
                   <p className="mt-0.5 text-[11px] text-neutral-400">
                     {liveActive
                       ? "Obraz przesyłany na żywo w rozmowie w czasie rzeczywistym."
-                      : "Kadr z kamery dołączy się automatycznie po wysłaniu polecenia."}
+                      : "Kadr dołączy się automatycznie po wysłaniu polecenia."}
                   </p>
                 </div>
               </div>
@@ -1594,7 +1661,7 @@ export const ChatVoiceStudio: React.FC<ChatVoiceStudioProps> = ({
           )}
 
           <div className="border-t border-[#1E2420] bg-[#0B0D0C] px-3.5 pt-2.5 pb-3.5 space-y-2.5">
-            {/* Real-time conversation toggle + Front / Rear camera checkboxes directly at the command bar */}
+            {/* Real-time conversation toggle + Front / Rear camera + Phone screen share checkboxes directly at the command bar */}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <button
                 type="button"
@@ -1623,7 +1690,7 @@ export const ChatVoiceStudio: React.FC<ChatVoiceStudioProps> = ({
                 </span>
               </button>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <label className="inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-[#222824] bg-[#111412] px-2.5 text-xs text-neutral-200 hover:border-emerald-500/40 cursor-pointer whitespace-nowrap">
                   <input
                     type="checkbox"
@@ -1644,6 +1711,17 @@ export const ChatVoiceStudio: React.FC<ChatVoiceStudioProps> = ({
                   />
                   <Camera className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                   <span>Udostępnij kamerę tylną</span>
+                </label>
+
+                <label className="inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-[#222824] bg-[#111412] px-2.5 text-xs text-neutral-200 hover:border-emerald-500/40 cursor-pointer whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={cameraFacing === "screen"}
+                    onChange={() => void toggleScreenSharing()}
+                    className="h-4 w-4 accent-emerald-500 cursor-pointer"
+                  />
+                  <MonitorSmartphone className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span>Udostępnij ekran telefonu</span>
                 </label>
               </div>
             </div>

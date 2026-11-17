@@ -17,6 +17,9 @@
     color: #F4F6F4;
     font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
     letter-spacing: 0.005em;
+    overscroll-behavior-y: contain;
+    -webkit-tap-highlight-color: transparent;
+    padding-top: env(safe-area-inset-top);
   }
 
   h1, h2, h3, h4, .font-display {

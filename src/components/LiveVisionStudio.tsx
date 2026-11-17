@@ -3,11 +3,12 @@ import {
   Camera,
   Eye,
   Loader2,
-  Monitor,
+  MonitorSmartphone,
   Play,
   RefreshCw,
   Send,
   Square,
+  Upload,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -27,8 +28,12 @@ export const LiveVisionStudio: React.FC<LiveVisionStudioProps> = ({
   const [facingMode, setFacingMode] = useState<"environment" | "user">(
     "environment"
   );
+  const [replyLang, setReplyLang] = useState<"pl" | "de">("pl");
   const [prompt, setPrompt] = useState(
     "Powiedz co widzisz i pomóż mi krok po kroku w tej czynności."
+  );
+  const [screenSnapshotUrl, setScreenSnapshotUrl] = useState<string | null>(
+    null
   );
   const [analyzing, setAnalyzing] = useState(false);
   const [autoAssist, setAutoAssist] = useState(false);
@@ -41,6 +46,7 @@ export const LiveVisionStudio: React.FC<LiveVisionStudioProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
 
   const stopStream = useCallback(() => {
     setAutoAssist(false);
@@ -52,6 +58,7 @@ export const LiveVisionStudio: React.FC<LiveVisionStudioProps> = ({
       videoRef.current.srcObject = null;
     }
     setSourceType(null);
+    setScreenSnapshotUrl(null);
   }, []);
 
   useEffect(() => {
@@ -94,7 +101,7 @@ export const LiveVisionStudio: React.FC<LiveVisionStudioProps> = ({
     stopStream();
     if (!navigator.mediaDevices?.getDisplayMedia) {
       setError(
-        "Twoja przeglądarka mobilna nie obsługuje udostępniania ekranu (getDisplayMedia). Użyj tylnej kamery lub przeglądarki desktopowej."
+        "Ta przeglądarka Android nie udostępnia transmisji ekranu na żywo (getDisplayMedia). Użyj przycisku „Zrzut ekranu z telefonu” poniżej lub uruchom aplikację w Google Chrome na Androidzie."
       );
       return;
     }
@@ -115,27 +122,53 @@ export const LiveVisionStudio: React.FC<LiveVisionStudioProps> = ({
     } catch (err) {
       setError(
         err instanceof Error
-          ? `Anulowano lub zablokowano udostępnianie ekranu: ${err.message}`
+          ? `Anulowano lub zablokowano udostępnianie ekranu: ${err.message}. Możesz też wybrać „Zrzut ekranu z telefonu”.`
           : "Nie udało się udostępnić ekranu."
       );
     }
   };
 
+  const handleScreenSnapshotSelect = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    stopStream();
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      if (result) {
+        setScreenSnapshotUrl(result);
+        setSourceType("screen");
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
   const captureAndAnalyze = useCallback(async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || !sourceType || video.readyState < 2) return;
+    if (!sourceType) return;
 
-    const w = Math.min(video.videoWidth || 960, 1280);
-    const h = Math.round((w / (video.videoWidth || 16)) * (video.videoHeight || 9));
-    canvas.width = w;
-    canvas.height = h || 540;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-    const base64 = dataUrl.split(",")[1];
+    let base64 = "";
+    if (screenSnapshotUrl) {
+      base64 = screenSnapshotUrl.split(",")[1] || "";
+    } else {
+      if (!video || !canvas || video.readyState < 2) return;
+      const w = Math.min(video.videoWidth || 960, 1280);
+      const h = Math.round(
+        (w / (video.videoWidth || 16)) * (video.videoHeight || 9)
+      );
+      canvas.width = w;
+      canvas.height = h || 540;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      base64 = dataUrl.split(",")[1] || "";
+    }
     if (!base64) return;
 
     setAnalyzing(true);
@@ -149,8 +182,11 @@ export const LiveVisionStudio: React.FC<LiveVisionStudioProps> = ({
           mimeType: "image/jpeg",
           prompt:
             prompt.trim() ||
-            "Opisz co widzisz i pomóż mi krok po kroku w tej czynności.",
+            (replyLang === "de"
+              ? "Beschreibe, was du auf dem Bildschirm siehst, und hilf mir Schritt für Schritt auf Deutsch."
+              : "Opisz co widzisz i pomóż mi krok po kroku w tej czynności po polsku."),
           sourceType,
+          language: replyLang,
         }),
       });
       const data = (await res.json()) as { text?: string; error?: string };
@@ -183,7 +219,7 @@ export const LiveVisionStudio: React.FC<LiveVisionStudioProps> = ({
     } finally {
       setAnalyzing(false);
     }
-  }, [prompt, sourceType, speakReplies, voicePreset]);
+  }, [prompt, replyLang, screenSnapshotUrl, sourceType, speakReplies, voicePreset]);
 
   useEffect(() => {
     if (!autoAssist || !sourceType) return;
@@ -202,14 +238,23 @@ export const LiveVisionStudio: React.FC<LiveVisionStudioProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-display text-lg font-bold text-white">
-              Asysta na żywo: Kamera tylna i Ekran
+              Ekran telefonu Android i Kamera na żywo
             </h3>
             <p className="mt-0.5 text-xs text-neutral-400">
-              Pokaż problem przed kamerą lub udostępnij ekran — Miękiszon
-              podpowie na głos, co zrobić dalej.
+              Udostępnij ekran z telefonu (albo kamerę tylną) — Miękiszon podpowie na głos po polsku lub po niemiecku.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <select
+              aria-label="Język odpowiedzi"
+              value={replyLang}
+              onChange={(e) => setReplyLang(e.target.value as "pl" | "de")}
+              className="min-h-[42px] rounded-xl border border-[#242B26] bg-[#050506] px-3 text-xs font-semibold text-white"
+            >
+              <option value="pl">Polski (PL)</option>
+              <option value="de">Deutsch (DE)</option>
+            </select>
+
             <button
               type="button"
               onClick={() => startCamera("environment")}
@@ -226,13 +271,32 @@ export const LiveVisionStudio: React.FC<LiveVisionStudioProps> = ({
               type="button"
               onClick={startScreenShare}
               className={`inline-flex min-h-[42px] items-center gap-2 rounded-xl px-3.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                sourceType === "screen"
+                sourceType === "screen" && !screenSnapshotUrl
                   ? "bg-emerald-500 text-black"
                   : "border border-[#242B26] bg-[#141816] text-neutral-200 hover:border-emerald-500/40"
               }`}
             >
-              <Monitor className="h-4 w-4" />
-              Udostępnij ekran
+              <MonitorSmartphone className="h-4 w-4" />
+              Udostępnij ekran telefonu
+            </button>
+            <input
+              ref={screenshotInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleScreenSnapshotSelect}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => screenshotInputRef.current?.click()}
+              className={`inline-flex min-h-[42px] items-center gap-2 rounded-xl px-3.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                screenSnapshotUrl
+                  ? "bg-emerald-500 text-black"
+                  : "border border-[#242B26] bg-[#141816] text-neutral-200 hover:border-emerald-500/40"
+              }`}
+            >
+              <Upload className="h-4 w-4" />
+              Zrzut ekranu z telefonu
             </button>
             {sourceType && (
               <button
@@ -248,23 +312,30 @@ export const LiveVisionStudio: React.FC<LiveVisionStudioProps> = ({
         </div>
 
         <div className="relative overflow-hidden rounded-xl border border-[#242B26] bg-[#050506] aspect-video">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="h-full w-full object-contain"
-          />
+          {screenSnapshotUrl ? (
+            <img
+              src={screenSnapshotUrl}
+              alt="Zrzut ekranu telefonu"
+              className="h-full w-full object-contain"
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="h-full w-full object-contain"
+            />
+          )}
           <canvas ref={canvasRef} className="hidden" />
           {!sourceType && (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
               <Eye className="h-9 w-9 text-emerald-400/70" />
               <p className="mt-3 text-sm font-medium text-white">
-                Wybierz kamerę tylną lub udostępnianie ekranu
+                Udostępnij ekran telefonu Android, zrzut ekranu lub kamerę
               </p>
               <p className="mt-1 max-w-sm text-xs text-neutral-500">
-                Obraz jest przetwarzany na żywo wyłącznie wtedy, gdy włączysz
-                podgląd i wyślesz klatkę do analizy.
+                Obraz jest analizowany wyłącznie po włączeniu podglądu lub wybraniu zrzutu ekranu.
               </p>
             </div>
           )}

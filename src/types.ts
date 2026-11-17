@@ -131,6 +131,6 @@ export interface LiveCallBarState {
   durationSec: number;
   subtitleUser: string;
   subtitleBot: string;
-  cameraFacing: "user" | "environment" | null;
+  cameraFacing: "user" | "environment" | "screen" | null;
 }
 

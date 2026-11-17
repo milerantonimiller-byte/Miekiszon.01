@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Download, Smartphone, X } from "lucide-react";
+import { Smartphone, X } from "lucide-react";
 import { usePWAInstall } from "../hooks/usePWAInstall";
 
 export const PWAInstallButton: React.FC = () => {
@@ -23,12 +23,12 @@ export const PWAInstallButton: React.FC = () => {
       <button
         type="button"
         onClick={handleClick}
-        className="inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-black transition-colors hover:bg-emerald-400 whitespace-nowrap shrink-0 cursor-pointer"
-        title="Zainstaluj aplikację Miękiszon na telefonie Android lub iOS"
+        className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-semibold text-black transition-colors hover:bg-emerald-400 whitespace-nowrap shrink-0 cursor-pointer"
+        title="Zainstaluj aplikację Miękiszon na telefonie Android"
       >
-        <Download className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Zainstaluj aplikację</span>
-        <span className="sm:hidden">Instaluj</span>
+        <Smartphone className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Zainstaluj na Android</span>
+        <span className="sm:hidden">Android</span>
       </button>
 
       {showGuide && (
@@ -48,7 +48,7 @@ export const PWAInstallButton: React.FC = () => {
                   id="pwa-guide-title"
                   className="font-display text-lg font-semibold text-white"
                 >
-                  Instalacja na Android / Telefonie
+                  Aplikacja na telefon Android
                 </h3>
               </div>
               <button
@@ -63,23 +63,24 @@ export const PWAInstallButton: React.FC = () => {
 
             {isIOS ? (
               <ol className="mt-4 space-y-2.5 text-sm leading-relaxed text-neutral-300">
-                <li>1. Otwórz tę stronę w przeglądarce Safari na iPhone lub iPad.</li>
+                <li>1. Otwórz tę stronę w Safari na iPhone lub iPad.</li>
                 <li>
-                  2. Dotknij ikony <strong className="text-white">Udostępnij</strong> na dolnym pasku.
-                </li>
-                <li>
-                  3. Wybierz <strong className="text-white">Dodaj do ekranu początkowego</strong>.
+                  2. Dotknij ikony <strong className="text-white">Udostępnij</strong> i wybierz{" "}
+                  <strong className="text-white">Dodaj do ekranu początkowego</strong>.
                 </li>
               </ol>
             ) : (
               <ol className="mt-4 space-y-2.5 text-sm leading-relaxed text-neutral-300">
-                <li>1. Otwórz aplikację w Google Chrome na telefonie z systemem Android.</li>
                 <li>
-                  2. Dotknij menu <strong className="text-white">⋮</strong> w prawym górnym rogu przeglądarki.
+                  1. Otwórz aplikację <strong className="text-white">Miękiszon</strong> w przeglądarce{" "}
+                  <strong className="text-white">Google Chrome na telefonie Android</strong>.
                 </li>
                 <li>
-                  3. Wybierz <strong className="text-white">Zainstaluj aplikację</strong> lub{" "}
-                  <strong className="text-white">Dodaj do ekranu głównego</strong> — Miękiszon pojawi się jako natywna aplikacja z ikoną ogórka.
+                  2. Dotknij menu <strong className="text-white">⋮</strong> w prawym górnym rogu ekranu.
+                </li>
+                <li>
+                  3. Wybierz <strong className="text-white">Zainstaluj aplikację</strong> (albo{" "}
+                  <strong className="text-white">Dodaj do ekranu głównego</strong>) — Miękiszon zapisze się jako pełnoekranowa aplikacja Android z ikoną ogórka i skrótami do głosu, jedzenia oraz udostępniania ekranu.
                 </li>
               </ol>
             )}

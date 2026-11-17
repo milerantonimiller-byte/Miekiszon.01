@@ -1031,16 +1031,21 @@ export const MediaPdfStudio: React.FC<MediaPdfStudioProps> = ({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-neutral-300">
-                Język docelowy wyniku
+              <label
+                htmlFor="pdf-target-lang"
+                className="mb-1.5 block text-xs font-medium text-neutral-300"
+              >
+                Język docelowy wyniku (tylko Polski / Deutsch)
               </label>
-              <input
-                type="text"
+              <select
+                id="pdf-target-lang"
                 value={targetLang}
                 onChange={(e) => setTargetLang(e.target.value)}
-                placeholder="Polski, Angielski, Niemiecki..."
                 className="w-full min-h-[42px] rounded-xl border border-[#242B26] bg-[#050506] px-3.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
-              />
+              >
+                <option value="Polski">Polski (PL)</option>
+                <option value="Niemiecki (Deutsch)">Niemiecki / Deutsch (DE)</option>
+              </select>
             </div>
 
             <div>

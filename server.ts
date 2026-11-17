@@ -180,12 +180,13 @@ function formatGeminiError(err: unknown): { status: number; message: string } {
   return { status: 500, message: clean || "Wystąpił błąd serwera Gemini." };
 }
 
-const MIEKISZON_SYSTEM_INSTRUCTION = `Jesteś Miękiszon — błyskotliwy, pewny siebie, lekko zadziorny, ale niezwykle pomocny i ciepły wielojęzyczny asystent AI (mówisz głosem wspaniałej, charyzmatycznej 30-letniej kobiety).
+const MIEKISZON_SYSTEM_INSTRUCTION = `Jesteś Miękiszon — błyskotliwy, pewny siebie, lekko zadziorny, ale niezwykle pomocny i ciepły asystent AI w aplikacji na telefon Android (mówisz głosem wspaniałej, charyzmatycznej 30-letniej kobiety).
 Twoje motto powitalne: "Co potrzebujesz ode mnie? Widać, że najwidoczniej potrzebujesz pomocy i jesteś taki słaby, że sam nie dasz rady. Uwierz w siebie, będzie dobrze."
 Zasady:
-1. Domyślnie odpowiadaj po polsku, ale jeśli użytkownik pisze lub prosi w innym języku (angielski, niemiecki, hiszpański, ukraiński, francuski, włoski itd.), odpowiadaj płynnie i naturalnie w tym języku.
-2. Bądź konkretny, rzeczowy, życzliwy i wspierający. Gdy użytkownik prosi o akcję na telefonie (np. ustawić budzik, zadzwonić, napisać WhatsApp, wysłać maila, dodać wydarzenie), przygotuj dokładną odpowiedź oraz zasugeruj gotowe parametry akcji.
-3. Kiedy używasz narzędzi Google Search lub Google Maps, podawaj wyłącznie zweryfikowane dane i źródła.`;
+1. Odpowiadaj WYŁĄCZNIE w języku polskim (Polski) albo w języku niemieckim (Deutsch). Żaden inny język nie jest dozwolony w odpowiedziach. Jeśli użytkownik napisze lub przemówi w innym języku, uprzejmie wyjaśnij po polsku (lub po niemiecku), że obsługujesz wyłącznie język polski i niemiecki, i odpowiedz w jednym z tych dwóch języków.
+2. Domyślnie odpowiadaj po polsku, a gdy użytkownik pisze lub mówi po niemiecku albo wybierze tryb niemiecki, odpowiadaj płynnie i naturalnie po niemiecku (Deutsch).
+3. Bądź konkretny, rzeczowy, życzliwy i wspierający. Gdy użytkownik prosi o akcję na telefonie Android (np. ustawić budzik, zadzwonić, napisać WhatsApp, wysłać maila, udostępnić ekran telefonu, dodać wydarzenie), przygotuj dokładną odpowiedź oraz zasugeruj gotowe parametry akcji.
+4. Kiedy używasz narzędzi Google Search lub Google Maps, podawaj wyłącznie zweryfikowane dane i źródła.`;
 
 async function startServer() {
   const app = express();
@@ -270,10 +271,18 @@ async function startServer() {
         tools.push({ googleSearch: {} });
       }
 
+      const langNorm =
+        language === "de"
+          ? "de"
+          : language === "pl_de" || language === "auto"
+            ? "pl_de"
+            : "pl";
       const langNote =
-        language && language !== "auto"
-          ? `\nPreferowany język odpowiedzi użytkownika: ${language}.`
-          : "";
+        langNorm === "de"
+          ? "\nWICHTIG: Antworte AUSSCHLIESSLICH auf Deutsch (język niemiecki)."
+          : langNorm === "pl_de"
+            ? "\nWAŻNE: Odpowiadaj WYŁĄCZNIE po polsku albo po niemiecku — dopasuj język odpowiedzi do tego, czy użytkownik pisze po polsku czy po niemiecku (tylko PL lub DE)."
+            : "\nWAŻNE: Odpowiadaj WYŁĄCZNIE w języku polskim (Polski).";
 
       let activeModel = selectedModel;
       const runGenerate = async (targetModel: string, enableTools: boolean) => {
@@ -559,7 +568,7 @@ async function startServer() {
         parts: [
           { inlineData: { mimeType, data: audioBase64 } },
           {
-            text: "Dokładnie przepisz wyłącznie treść wypowiedzi z tego nagrania głosowego (zachowaj język mówiącego, bez dodatkowych komentarzy).",
+            text: "Dokładnie przepisz wyłącznie treść wypowiedzi z tego nagrania głosowego (obsługiwane języki: polski lub niemiecki, zachowaj oryginalny język mówiącego PL/DE, bez dodatkowych komentarzy).",
           },
         ],
       };
@@ -750,11 +759,17 @@ async function startServer() {
         customInstructions?: string;
       };
 
+      const safeTargetLang =
+        targetLanguage.toLowerCase().includes("niem") ||
+        targetLanguage.toLowerCase().includes("de")
+          ? "Niemiecki (Deutsch)"
+          : "Polski";
+
       const taskPrompts: Record<string, string> = {
-        translate: `Przetłumacz dokładnie całą treść dokumentu "${fileName}" na język: ${targetLanguage}. Zachowaj strukturę nagłówków, listy i ton oryginału.`,
-        proofread: `Przeprowadź profesjonalną korektę językową, ortograficzną, interpunkcyjną i stylistyczną dokumentu "${fileName}". Najpierw wypunktuj najważniejsze poprawki, a następnie podaj pełny poprawiony tekst.`,
-        summarize: `Stwórz przejrzyste podsumowanie dokumentu "${fileName}" w języku ${targetLanguage}: główne tezy, najważniejsze liczby, wnioski i zadania do wykonania.`,
-        extract: `Wyodrębnij kluczowe dane strukturalne (daty, kwoty, adresy, nazwiska, punkty kluczowe) z dokumentu "${fileName}" w języku ${targetLanguage}.`,
+        translate: `Przetłumacz dokładnie całą treść dokumentu "${fileName}" na język: ${safeTargetLang}. Zachowaj strukturę nagłówków, listy i ton oryginału. Wynik podaj wyłącznie po polsku lub niemiecku (${safeTargetLang}).`,
+        proofread: `Przeprowadź profesjonalną korektę językową, ortograficzną, interpunkcyjną i stylistyczną dokumentu "${fileName}" (język wyniku: ${safeTargetLang}). Najpierw wypunktuj najważniejsze poprawki, a następnie podaj pełny poprawiony tekst.`,
+        summarize: `Stwórz przejrzyste podsumowanie dokumentu "${fileName}" w języku ${safeTargetLang}: główne tezy, najważniejsze liczby, wnioski i zadania do wykonania.`,
+        extract: `Wyodrębnij kluczowe dane strukturalne (daty, kwoty, adresy, nazwiska, punkty kluczowe) z dokumentu "${fileName}" w języku ${safeTargetLang}.`,
       };
 
       const promptText =
@@ -811,17 +826,24 @@ async function startServer() {
         mimeType = "image/jpeg",
         prompt = "Opisz co widzisz i pomóż mi krok po kroku w tej czynności po polsku.",
         sourceType = "camera",
+        language = "pl",
       } = req.body as {
         imageBase64: string;
         mimeType?: string;
         prompt?: string;
         sourceType?: "camera" | "screen";
+        language?: "pl" | "de";
       };
+
+      const langDirective =
+        language === "de"
+          ? "Antworte AUSSCHLIESSLICH auf Deutsch."
+          : "Odpowiadaj WYŁĄCZNIE po polsku.";
 
       const contextPrefix =
         sourceType === "screen"
-          ? "Użytkownik udostępnia swój ekran w czasie rzeczywistym. Pomóż mu konkretnie i zwięźle:"
-          : "Użytkownik pokazuje obraz z tylnej kamery na żywo. Pomóż mu w czynności krok po kroku:";
+          ? `Użytkownik udostępnia ekran swojego telefonu Android w czasie rzeczywistym. Pomóż mu konkretnie i zwięźle (${langDirective}):`
+          : `Użytkownik pokazuje obraz z kamery telefonu na żywo. Pomóż mu w czynności krok po kroku (${langDirective}):`;
 
       const visionContents = {
         parts: [
@@ -1941,11 +1963,11 @@ Przygotuj konkretną, przejrzystą analizę po polsku w dwóch sekcjach (w zale�
     const allowedVoices = new Set(["Kore", "Zephyr", "Charon", "Puck", "Fenrir"]);
     const voiceName = allowedVoices.has(voiceParam) ? voiceParam : "Kore";
     const langNote =
-      langParam === "pl"
-        ? " Mów wyłącznie czystym, naturalnym językiem polskim (zapisuj transkrypcję wyłącznie polskim alfabetem łacińskim, bez obcych słów czy cyrylicy), chyba że użytkownik wyraźnie poprosi o inny język."
-        : langParam && langParam !== "auto"
-          ? ` Rozmawiaj domyślnie w języku: ${langParam}, ale automatycznie przełączaj się, jeśli użytkownik przemówi w innym języku.`
-          : " Automatycznie wykrywaj język rozmówcy i odpowiadaj w tym samym języku.";
+      langParam === "de"
+        ? " Mów i odpowiadaj WYŁĄCZNIE czystym, naturalnym językiem niemieckim (Deutsch). Nie używaj innych języków."
+        : langParam === "pl_de" || langParam === "auto"
+          ? " Mów i odpowiadaj WYŁĄCZNIE po polsku (Polski) albo po niemiecku (Deutsch) — automatycznie dopasowuj się do rozmówcy, używając tylko tych dwóch języków."
+          : " Mów WYŁĄCZNIE czystym, naturalnym językiem polskim (zapisuj transkrypcję wyłącznie polskim alfabetem łacińskim). Jeśli rozmówca odezwie się po niemiecku, możesz odpowiedzieć po niemiecku, ale nigdy w żadnym innym języku.";
 
     const liveTools: FunctionDeclaration[] = [
       {
@@ -2128,7 +2150,10 @@ Przygotuj konkretną, przejrzystą analizę po polsku w dwóch sekcjach (w zale�
                 role: "user",
                 parts: [
                   {
-                    text: "Przywitaj się jednym krótkim zdaniem po polsku (maksymalnie 10 słów) i zapytaj, w czym pomóc.",
+                    text:
+                      langParam === "de"
+                        ? "Begrüße den Nutzer mit einem kurzen Satz auf Deutsch (max. 10 Wörter) und frage, wie du helfen kannst."
+                        : "Przywitaj się jednym krótkim zdaniem po polsku (maksymalnie 10 słów) i zapytaj, w czym pomóc.",
                   },
                 ],
               },
@@ -2188,7 +2213,7 @@ Przygotuj konkretną, przejrzystą analizę po polsku w dwóch sekcjach (w zale�
           systemInstruction:
             MIEKISZON_SYSTEM_INSTRUCTION +
             langNote +
-            "\nRozmawiasz na żywo przez mikrofon. Rozmowa NIE przerywa się przy przełączaniu zakładek w aplikacji — możesz cały czas prowadzić użytkownika krok po kroku na żywo. Jeśli użytkownik chce szukać jedzenia w okolicy (albo po mieście czy kodzie pocztowym), używaj narzędzi switchWorkspaceTab, searchFoodPlaces oraz selectFoodPlace, aby przełączać ekran, wyświetlać lokale na mapie, czytać na głos 2–3 najlepsze miejsca i prowadzić aż do nawigacji. Gdy użytkownik poprosi o zadzwonienie lub połączenie telefoniczne z wybranym lokalem albo hotelem (np. 'zadzwoń tam', 'połącz mnie z pierwszą restauracją'), wywołaj narzędzie callPlacePhone — nigdy nie wymyślaj numeru telefonu z pamięci, używaj wyłącznie prawdziwych numerów zwróconych z Google Places. Odpowiadaj naturalnie, krótko (1–3 zdania), żywo i bez markdown.",
+            "\nRozmawiasz na żywo przez mikrofon telefonu Android. Użytkownik może udostępniać Ci na żywo kamerę przód, kamerę tylną albo ekran swojego telefonu. Rozmowa NIE przerywa się przy przełączaniu zakładek w aplikacji — możesz cały czas prowadzić użytkownika krok po kroku na żywo. Jeśli użytkownik chce szukać jedzenia w okolicy (albo po mieście czy kodzie pocztowym), używaj narzędzi switchWorkspaceTab, searchFoodPlaces oraz selectFoodPlace, aby przełączać ekran, wyświetlać lokale na mapie, czytać na głos 2–3 najlepsze miejsca i prowadzić aż do nawigacji. Gdy użytkownik poprosi o zadzwonienie lub połączenie telefoniczne z wybranym lokalem albo hotelem (np. 'zadzwoń tam', 'połącz mnie z pierwszą restauracją'), wywołaj narzędzie callPlacePhone — nigdy nie wymyślaj numeru telefonu z pamięci, używaj wyłącznie prawdziwych numerów zwróconych z Google Places. Odpowiadaj naturalnie, krótko (1–3 zdania), żywo, bez markdown i wyłącznie po polsku lub po niemiecku.",
         },
         callbacks: {
           onopen: () => {
