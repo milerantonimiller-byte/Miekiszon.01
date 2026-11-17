@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="112" fill="#050506"/>
+  <rect x="16" y="16" width="480" height="480" rx="96" stroke="#1F2922" stroke-width="4"/>
+  <g transform="translate(256 256) rotate(-18) translate(-256 -256)">
+    <path d="M256 88C296 88 326 124 328 184C330 244 326 322 318 368C310 412 286 428 256 428C226 428 202 412 194 368C186 322 182 244 184 184C186 124 216 88 256 88Z" fill="url(#pickleGrad)" stroke="#4ADE80" stroke-width="6"/>
+    <path d="M242 124C236 184 234 282 242 384" stroke="#86EFAC" stroke-opacity="0.35" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="222" cy="176" r="7" fill="#14532D"/>
+    <circle cx="282" cy="212" r="8" fill="#14532D"/>
+    <circle cx="226" cy="264" r="7" fill="#14532D"/>
+    <circle cx="278" cy="306" r="6" fill="#14532D"/>
+    <circle cx="236" cy="352" r="7" fill="#14532D"/>
+    <path d="M256 72C256 80 256 88 256 88" stroke="#4ADE80" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  <defs>
+    <linearGradient id="pickleGrad" x1="184" y1="88" x2="328" y2="428" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22C55E"/>
+      <stop offset="0.5" stop-color="#15803D"/>
+      <stop offset="1" stop-color="#052E16"/>
+    </linearGradient>
+  </defs>
+</svg>

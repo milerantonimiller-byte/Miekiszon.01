@@ -1,0 +1,12 @@
+{
+  "name": "Miękiszon",
+  "description": "Czarny wielojęzyczny asystent AI z logo ogórka, głosem 30-letniej kobiety, mapami Google, trasami do 20 adresów, stacjami paliw, edycją zdjęć i wideo, kamerą na żywo, Gmail i instalacją na Android.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
